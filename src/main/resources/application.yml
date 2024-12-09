@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: APF_Trading_v2
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://10.0.0.101:5432/apf_app_cms_db?currentSchema=public}
+    username: ${SPRING_DATASOURCE_USERNAME:apf_app_cms_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:12345aA@}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+    hikari:
+      schema: ${SPRING_DATASOURCE_HIKARI_SCHEMA:public}
+  rabbitmq:
+    host: 10.0.0.72
+    port: 5672
+    username: abond
+    password: abond
+    queue:
+      name: TX_HNX_SEND_ORDER
+    exchange:
+      order: TX_HNX_PUSH_MESSAGE
+      message: TX_HNX_SEND_MESSAGE
+  redis:
+    host: 10.0.0.187
+    port: 6379
+    username: shm_digital
+    password: Apec*@2024
+server:
+  servlet:
+    context-path: /v2/api/apec-finance/trading
+  port: 8081
+
+
