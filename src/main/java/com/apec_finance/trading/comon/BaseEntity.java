@@ -9,6 +9,8 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 import javax.persistence.*;
@@ -23,13 +25,13 @@ public abstract class BaseEntity implements Serializable {
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
-    private OffsetDateTime createdDate;
+    private LocalDateTime createdDate;
 
     @Column(nullable = false, updatable = false)
     private String createdBy;
 
     @UpdateTimestamp
-    private OffsetDateTime modifiedDate;
+    private LocalDateTime modifiedDate;
 
     private String modifiedBy;
 

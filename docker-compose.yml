@@ -31,6 +31,8 @@ services:
       - SPRING_SECURITY_KEYCLOAK_RESOURCE=apec-finance-api
       - SPRING_SECURITY_KEYCLOAK_CREDENTIALS_SECRET=UEM6v6kLpmDee1oTQgcclgsVR1jiXmdL
       - SPRING_SECURITY_KEYCLOAK_USE_RESOURCE_ROLE_MAPPINGS=true
+      - CASH_CLIENT_URL=http://10.0.0.80:8090/v2/api/apec-finance/cash
+      - APP_CLIENT_URL=https://d111-113-22-85-28.ngrok-free.app
     ports:
       - "8082:8082"
     networks:

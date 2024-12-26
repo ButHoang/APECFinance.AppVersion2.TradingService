@@ -2,7 +2,7 @@ package com.apec_finance.trading.service.impl;
 
 import com.apec_finance.trading.entity.InvestorAssetEntity;
 import com.apec_finance.trading.exception.validate.ValidationException;
-import com.apec_finance.trading.model.Interest;
+import com.apec_finance.trading.model.interest.Interest;
 import com.apec_finance.trading.repository.AssetInterestScheduleRepository;
 import com.apec_finance.trading.repository.InvestorAssetRepository;
 import com.apec_finance.trading.service.InterestService;

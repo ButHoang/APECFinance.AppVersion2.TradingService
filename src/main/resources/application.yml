@@ -11,26 +11,26 @@ spring:
       schema: ${SPRING_DATASOURCE_HIKARI_SCHEMA:trading}
 
   rabbitmq:
-    host: 10.0.0.72
-    port: 5672
-    username: abond
-    password: abond
+    host: ${SPRING_RABBITMQ_HOST:10.0.0.72}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:abond}
+    password: ${SPRING_RABBITMQ_PASSWORD:abond}
     queue:
-      name: TX_HNX_SEND_ORDER
+      name: ${SPRING_RABBITMQ_QUEUE_NAME:TX_HNX_SEND_ORDER}
     exchange:
-      order: TX_HNX_PUSH_MESSAGE
-      message: TX_HNX_SEND_MESSAGE
+      order: ${SPRING_RABBITMQ_EXCHANGE_ORDER:TX_HNX_PUSH_MESSAGE}
+      message: ${SPRING_RABBITMQ_EXCHANGE_MESSAGE:TX_HNX_SEND_MESSAGE}
 
   redis:
-    host: 10.0.0.187
-    port: 6379
-    username: shm_digital
-    password: Apec*@2024
+    host: ${SPRING_REDIS_HOST:10.0.0.187}
+    port: ${SPRING_REDIS_PORT:6379}
+    username: ${SPRING_REDIS_USERNAME:shm_digital}
+    password: ${SPRING_REDIS_PASSWORD:Apec*@2024}
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -39,16 +39,25 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://sso.apecgroup.net/realms/APECFinance
-          jwk-set-uri: https://sso.apecgroup.net/realms/APECFinance/protocol/openid-connect/certs
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:https://sso.apecgroup.net/realms/APECFinance}
+          jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:https://sso.apecgroup.net/realms/APECFinance/protocol/openid-connect/certs}
 
     keycloak:
-      realm: APECFinance
-      auth-server-url: https://sso.apecgroup.net/realms/APECFinance
-      resource: apec-finance-api
+      realm: ${SPRING_SECURITY_KEYCLOAK_REALM:APECFinance}
+      auth-server-url: ${SPRING_SECURITY_KEYCLOAK_AUTH_SERVER_URL:https://sso.apecgroup.net/realms/APECFinance}
+      resource: ${SPRING_SECURITY_KEYCLOAK_RESOURCE:apec-finance-api}
       credentials:
-        secret: UEM6v6kLpmDee1oTQgcclgsVR1jiXmdL
+        secret: ${SPRING_SECURITY_KEYCLOAK_CREDENTIALS_SECRET:UEM6v6kLpmDee1oTQgcclgsVR1jiXmdL}
       use-resource-role-mappings: true
+
+  feign:
+    client:
+      config:
+        cash-client:
+          url: ${CASH_CLIENT_URL:http://10.0.0.80:8090/v2/api/apec-finance/cash}
+        app-client:
+          url: ${APP_CLIENT_URL:https://d111-113-22-85-28.ngrok-free.app}
+
 server:
   port: 8082
   servlet:

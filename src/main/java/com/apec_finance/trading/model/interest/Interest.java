@@ -1,4 +1,4 @@
-package com.apec_finance.trading.model;
+package com.apec_finance.trading.model.interest;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;

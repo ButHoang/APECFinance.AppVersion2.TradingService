@@ -1,7 +1,7 @@
 package com.apec_finance.trading.controller;
 
 import com.apec_finance.trading.comon.ResponseBuilder;
-import com.apec_finance.trading.model.Interest;
+import com.apec_finance.trading.model.interest.Interest;
 import com.apec_finance.trading.service.InterestService;
 import com.apec_finance.trading.service.KeycloakService;
 import lombok.RequiredArgsConstructor;
