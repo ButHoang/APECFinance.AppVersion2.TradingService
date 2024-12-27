@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,8 +23,12 @@ public class InterestServiceImpl implements InterestService {
     public Interest getInterestInfo(Long investorId) {
         var interestSchedule = assetInterestScheduleRepository.findByInvestorIdAndStatus(investorId, 0);
         if (interestSchedule == null) throw new ValidationException("User Id not found");
-        InvestorAssetEntity investorAssetEntity = investorAssetRepository.findByInvestorIdAndStatusAndDeleted(investorId, 1, 0);
-        Float value = investorAssetEntity.getValue();
+        List<InvestorAssetEntity> investorAssetEntities = investorAssetRepository.findByInvestorIdAndStatusAndDeleted(investorId, 1, 0);
+
+        float value = investorAssetEntities.stream()
+                .map(InvestorAssetEntity::getValue)
+                .reduce(0f, Float::sum);
+
         Float interestRate = interestSchedule.getInterestRate();
         Float feeAmount = interestSchedule.getFeeAmount();
 
