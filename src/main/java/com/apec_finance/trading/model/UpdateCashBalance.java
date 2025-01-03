@@ -7,4 +7,5 @@ public class UpdateCashBalance {
     private Long investorId;
     private Float paidAmount;
     private String createdBy;
+    private String type;
 }

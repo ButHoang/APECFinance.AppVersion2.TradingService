@@ -1,21 +1,27 @@
 package com.apec_finance.trading.service.impl;
 
 import com.apec_finance.trading.comon.ResponseBuilder;
+import com.apec_finance.trading.entity.AssetInterestScheduleEntity;
+import com.apec_finance.trading.entity.InvestorAssetEntity;
 import com.apec_finance.trading.entity.OrderEntity;
 import com.apec_finance.trading.mapper.OrderMapper;
 import com.apec_finance.trading.model.*;
 import com.apec_finance.trading.model.order.*;
+import com.apec_finance.trading.repository.AssetInterestScheduleRepository;
+import com.apec_finance.trading.repository.InvestorAssetRepository;
 import com.apec_finance.trading.repository.OrderRepository;
 import com.apec_finance.trading.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +30,8 @@ import java.util.List;
 @Slf4j
 public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
+    private final InvestorAssetRepository investorAssetRepository;
+    private final AssetInterestScheduleRepository assetInterestScheduleRepository;
     private final CashClient cashClient;
     private final KeycloakService keycloakService;
     private final AppClient appClient;
@@ -65,15 +73,18 @@ public class OrderServiceImpl implements OrderService {
 
 
     @Override
-    public Order createDeposite(OrderDepositRQ rq) {
-        if (!validateAmount(rq)) return null;
+    @Transactional
+    public Order createDeposit(OrderDepositRQ rq) {
+        if (!validateAmount(rq)) {
+            log.error("Invalid amount in OrderDepositRQ");
+            return null;
+        }
 
-//        List<TransactionRange> transactionRanges = appClient.getTransactionRange();
-        AppStockRS stockRS = appClient.getStockRs(rq.getProductId(), "*,stock_product_detail.*");
+        AppStockRS stockRS = appClient.getStockRs(rq.getProductId(), "*,product_int_detail.*,issuer_id.*");
         AppProduct appProduct = stockRS.getData().get(0);
-        AppStockProductDetail productDetail = appProduct.getStockProductDetail();
-        Long orderValue = rq.getOrderQuantity() * appProduct.getParValue();
-        Long parValue = appProduct.getParValue();
+
+        float orderValue = rq.getOrderQuantity() * appProduct.getParValue();
+        Float parValue = (float) appProduct.getParValue();
 
         OrderEntity orderEntity = new OrderEntity();
         orderEntity.setInvestorId(keycloakService.getInvestorIdFromToken())
@@ -86,18 +97,20 @@ public class OrderServiceImpl implements OrderService {
                 .setOrderStatus(1)
                 .setProductId(rq.getProductId())
                 .setProductCode(rq.getProductCode())
-                .setParValue(parValue.floatValue())
+                .setParValue(parValue)
                 .setOrderQuantity(rq.getOrderQuantity())
-                .setOrderPrice(parValue.floatValue())
-                .setOrderValue(orderValue.floatValue())
-                .setInterestRate(appProduct.getInterestRate())
-                .setPaidAmount(orderValue.floatValue())
+                .setOrderPrice(parValue)
+                .setOrderValue(orderValue)
+                .setInterestRate((float) appProduct.getInterestRate())
+                .setPaidAmount(orderValue)
                 .setCreatedBy(keycloakService.getNameFromToken());
+
         orderRepository.save(orderEntity);
 
         UpdateCashBalance updateCashBalance = new UpdateCashBalance();
         updateCashBalance.setInvestorId(keycloakService.getInvestorIdFromToken());
-        updateCashBalance.setPaidAmount((float) orderValue);
+        updateCashBalance.setPaidAmount(orderValue);
+        updateCashBalance.setType("DEPOSIT");
 
         CreateCashTransaction createCashTransaction = new CreateCashTransaction();
         createCashTransaction.setOpr("-");
@@ -108,20 +121,239 @@ public class OrderServiceImpl implements OrderService {
         createCashTransaction.setRefId(orderEntity.getId());
         createCashTransaction.setTranType("ORD");
         createCashTransaction.setStatus("P");
-        createCashTransaction.setTranAmount(orderValue.floatValue());
+        createCashTransaction.setTranAmount(orderValue);
         createCashTransaction.setCreatedBy(keycloakService.getNameFromToken());
 
         try {
             cashClient.updateCashBalance("Bearer " + keycloakService.getToken(), updateCashBalance);
             cashClient.createCashTransaction("Bearer " + keycloakService.getToken(), createCashTransaction);
-            log.info("Updated to cash service");
+            log.info("Updated to cash service successfully");
         } catch (Exception e) {
-            log.error("Fail to update cash service " + e.getMessage());
+            log.error("Failed to update cash service: " + e.getMessage());
         }
-
 
         return orderMapper.getDTO(orderEntity);
     }
+
+    @Override
+    @Transactional
+    public Order createWithDraw(String assetNo, BigDecimal amount) {
+        OrderEntity orderEntity = new OrderEntity();
+        String accountNo = investorAssetRepository.findInvestorAccountNoByInvestorIdAndStatusAndDeleted(keycloakService.getInvestorIdFromToken(), 1,0);
+        InvestorAssetEntity assetEntity = investorAssetRepository.findByAssetNoAndStatusAndDeleted(assetNo, 1, 0);
+
+        AppStockRS stockRS = appClient.getStockRs(assetEntity.getProductId(), "*,product_int_detail.*,issuer_id.*");
+        AppProduct appProduct = stockRS.getData().get(0);
+
+        Integer quantity = amount.divide(BigDecimal.valueOf(appProduct.getParValue()), RoundingMode.HALF_UP).intValue();
+
+        orderEntity.setInvestorId(keycloakService.getInvestorIdFromToken())
+                .setOrderNo(generateOrderNo())
+                .setInvestorAccountNo(accountNo)
+                .setOrderDate(LocalDate.now())
+                .setOrderTime(LocalDateTime.now())
+                .setOrderSide("S")
+                .setOrderType(1)
+                .setOrderStatus(getWithDrawStatus(amount, assetEntity.getValue()))
+                .setProductId(assetEntity.getProductId())
+                .setProductCode(assetEntity.getProductCode())
+                .setParValue((float) appProduct.getParValue())
+                .setOrderQuantity(quantity)
+                .setOrderPrice((float) appProduct.getParValue())
+                .setOrderValue(amount.floatValue())
+                .setInterestRate(appProduct.getInterestRate())
+                .setPaidAmount(amount.floatValue())
+                .setCreatedBy(keycloakService.getNameFromToken());
+        orderRepository.save(orderEntity);
+
+        UpdateCashBalance updateCashBalance = new UpdateCashBalance();
+        updateCashBalance.setInvestorId(keycloakService.getInvestorIdFromToken());
+        updateCashBalance.setPaidAmount(amount.floatValue());
+        updateCashBalance.setType("WITHDRAW");
+
+        CreateCashTransaction createCashTransaction = new CreateCashTransaction();
+        createCashTransaction.setOpr("+");
+        createCashTransaction.setInvestorId(keycloakService.getInvestorIdFromToken());
+        createCashTransaction.setTranDate(LocalDate.now());
+        createCashTransaction.setTranTime(LocalDateTime.now());
+        createCashTransaction.setRefNo(orderEntity.getOrderNo());
+        createCashTransaction.setRefId(orderEntity.getId());
+        createCashTransaction.setTranType("REV");
+        createCashTransaction.setStatus("P");
+        createCashTransaction.setTranAmount(amount.floatValue());
+        createCashTransaction.setCreatedBy(keycloakService.getNameFromToken());
+
+
+        try {
+            cashClient.createCashTransaction("Bearer " + keycloakService.getToken(), createCashTransaction);
+            cashClient.updateCashBalance("Bearer " + keycloakService.getToken(), updateCashBalance);
+            log.info("Updated to cash service successfully");
+        } catch (Exception e) {
+            log.error("Failed to update cash service: " + e.getMessage());
+        }
+
+        assetEntity.setQuantity(quantity);
+        assetEntity.setValue(assetEntity.getValue() - amount.floatValue());
+        investorAssetRepository.save(assetEntity);
+
+        List<AssetInterestScheduleEntity> assetInterestScheduleEntities = assetInterestScheduleRepository.findByAssetIdAndInterestDateGreaterThan(assetEntity.getId(), LocalDate.now());
+        assetInterestScheduleEntities.forEach(assetInterestScheduleEntity -> {
+            assetInterestScheduleEntity.setQuantity(quantity);
+            assetInterestScheduleEntity.setValue(assetEntity.getValue() - amount.floatValue());
+            float interestBeforeTax = assetEntity.getValue() * assetInterestScheduleEntity.getInterestRate() / appProduct.getBaseIntDays();
+            float feeAmount = interestBeforeTax * 5 / 100;
+            Float interestValue = interestBeforeTax - feeAmount;
+            assetInterestScheduleEntity.setInterestValue(interestValue);
+            assetInterestScheduleEntity.setFeeAmount(feeAmount);
+        });
+        assetInterestScheduleRepository.saveAll(assetInterestScheduleEntities);
+
+        return orderMapper.getDTO(orderEntity);
+    }
+
+    private int getWithDrawStatus(BigDecimal amount, Float assetValue) {
+        if (amount.compareTo(BigDecimal.valueOf(assetValue)) < 0) {
+            return 3;
+        } else {
+            return 2;
+        }
+    }
+
+
+    @Override
+    public ExpectedInterest getExpectInterest(String assetNo, BigDecimal amount) {
+        InvestorAssetEntity assetEntity = investorAssetRepository.findByAssetNoAndStatusAndDeleted(assetNo, 1, 0);
+        LocalDate createdDate = assetEntity.getCreatedDate().toLocalDate();
+
+        List<AssetInterestScheduleEntity> assetInterestScheduleEntities = assetInterestScheduleRepository.findByAssetNoAndStatusAndDeleted(assetNo, 0, 0);
+
+        AppStockRS stockRS = appClient.getStockRs(assetEntity.getProductId(), "*,product_int_detail.*,issuer_id.*");
+        AppProduct appProduct = stockRS.getData().get(0);
+
+        ExpectedInterest expectedInterest = new ExpectedInterest();
+
+        int baseIntDays = appProduct.getBaseIntDays();
+
+        BigDecimal withdrawalInterestRate = calculateWithdrawalInterestRate(createdDate, stockRS.getData().get(0).getProductIntDetail(), baseIntDays);
+        expectedInterest.setWithdrawalInterestRate(withdrawalInterestRate);
+
+        BigDecimal totalInterestReceived = calculateTotalInterestReceived(assetInterestScheduleEntities);
+        expectedInterest.setTotalInterestReceived(totalInterestReceived);
+
+        BigDecimal incomeTaxPaid = calculateIncomeTaxPaid(assetInterestScheduleEntities);
+        expectedInterest.setIncomeTaxPaid(incomeTaxPaid);
+
+        long daysOfInterest = calculateInterestDays(createdDate);
+        expectedInterest.setInterestDays(daysOfInterest);
+
+        BigDecimal actualInterest = calculateActualInterest(amount, withdrawalInterestRate, daysOfInterest, baseIntDays);
+        expectedInterest.setActualInterest(actualInterest);
+
+        BigDecimal personalIncomeTax = calculatePersonalIncomeTax(actualInterest, totalInterestReceived, incomeTaxPaid);
+        expectedInterest.setPersonalIncomeTax(personalIncomeTax);
+
+        BigDecimal remainingInterest = calculateRemainingInterest(actualInterest, totalInterestReceived, personalIncomeTax);
+        expectedInterest.setRemainingInterest(remainingInterest);
+
+        BigDecimal actualReceived = amount.add(remainingInterest);
+        expectedInterest.setActualReceived(actualReceived);
+
+        return expectedInterest;
+    }
+
+    private BigDecimal calculateRemainingInterest(BigDecimal actualInterest, BigDecimal totalInterestReceived, BigDecimal personalIncomeTax) {
+        if (personalIncomeTax.compareTo(BigDecimal.ZERO) > 0) {
+            return actualInterest.subtract(totalInterestReceived).subtract(personalIncomeTax);
+        } else {
+            return actualInterest.subtract(totalInterestReceived);
+        }
+    }
+    private BigDecimal calculatePersonalIncomeTax(BigDecimal actualInterest, BigDecimal totalInterestReceived, BigDecimal incomeTaxPaid) {
+        BigDecimal taxableInterest = actualInterest.subtract(totalInterestReceived);
+        BigDecimal personalIncomeTax = taxableInterest.multiply(BigDecimal.valueOf(0.05)).subtract(incomeTaxPaid);
+        return personalIncomeTax.max(BigDecimal.ZERO);
+    }
+
+    private BigDecimal calculateActualInterest(BigDecimal amount, BigDecimal withdrawalInterestRate, long daysOfInterest, int baseIntDays) {
+        if (withdrawalInterestRate == null || withdrawalInterestRate.compareTo(BigDecimal.ZERO) <= 0 || daysOfInterest <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal interestPerDay = withdrawalInterestRate.divide(BigDecimal.valueOf(baseIntDays), 10, RoundingMode.HALF_UP);
+        return amount.multiply(interestPerDay).multiply(BigDecimal.valueOf(daysOfInterest));
+    }
+
+    private long calculateInterestDays(LocalDate createdDate) {
+        LocalDate currentDate = LocalDate.now();
+        return ChronoUnit.DAYS.between(createdDate, currentDate);
+    }
+
+    private BigDecimal calculateTotalInterestReceived(List<AssetInterestScheduleEntity> assetInterestScheduleEntities) {
+        LocalDate currentDate = LocalDate.now();
+        BigDecimal totalInterestReceived = BigDecimal.ZERO;
+
+        for (AssetInterestScheduleEntity entity : assetInterestScheduleEntities) {
+            if (entity.getInterestDate().isBefore(currentDate) || entity.getInterestDate().isEqual(currentDate)) {
+                BigDecimal interestValue = BigDecimal.valueOf(entity.getInterestValue());
+                BigDecimal feeAmount = BigDecimal.valueOf(entity.getFeeAmount());
+                BigDecimal interestReceived = interestValue.subtract(feeAmount);
+
+                totalInterestReceived = totalInterestReceived.add(interestReceived);
+            }
+        }
+
+        return totalInterestReceived;
+    }
+
+    private BigDecimal calculateIncomeTaxPaid(List<AssetInterestScheduleEntity> assetInterestScheduleEntities) {
+        LocalDate currentDate = LocalDate.now();
+        BigDecimal incomeTaxPaid = BigDecimal.ZERO;
+
+        for (AssetInterestScheduleEntity entity : assetInterestScheduleEntities) {
+            if (entity.getInterestDate().isBefore(currentDate) || entity.getInterestDate().isEqual(currentDate)) {
+                BigDecimal feeAmount = BigDecimal.valueOf(entity.getFeeAmount());
+                incomeTaxPaid = incomeTaxPaid.add(feeAmount);
+            }
+        }
+
+        return incomeTaxPaid;
+    }
+
+    private BigDecimal calculateWithdrawalInterestRate(LocalDate createdDate, List<AppStockProductDetail> productIntDetails, int baseIntDays) {
+        LocalDate currentDate = LocalDate.now();
+        long daysBetween = ChronoUnit.DAYS.between(createdDate, currentDate);
+
+        for (AppStockProductDetail detail : productIntDetails) {
+            long interestPeriodDays = calculateInterestPeriodInDays(detail.getInterestPeriod(), detail.getInterestPeriodUnit(), baseIntDays);
+
+            if (daysBetween <= interestPeriodDays) {
+                return new BigDecimal(detail.getInterestRate());
+            }
+        }
+
+        return BigDecimal.ZERO;
+    }
+
+    private long calculateInterestPeriodInDays(int interestPeriod, int interestPeriodUnit, int baseIntDays) {
+        switch (interestPeriodUnit) {
+            case 1:
+                return interestPeriod;
+            case 2:
+                return interestPeriod * 7L;
+            case 3:
+                return interestPeriod * 30L;
+            case 4:
+                return interestPeriod * 90L;
+            case 5:
+                return (long) interestPeriod * baseIntDays;
+            default:
+                return 0;
+        }
+    }
+
+
+
+
 
     public Boolean validateAmount(OrderDepositRQ rq) {
         ResponseBuilder<InvestorCashBalance> cashBalance = cashClient.getBalance("Bearer " + keycloakService.getToken());

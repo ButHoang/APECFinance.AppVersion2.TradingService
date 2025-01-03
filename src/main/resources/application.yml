@@ -22,10 +22,10 @@ spring:
       message: ${SPRING_RABBITMQ_EXCHANGE_MESSAGE:TX_HNX_SEND_MESSAGE}
 
   redis:
-    host: ${SPRING_REDIS_HOST:10.0.0.187}
+    host: ${SPRING_REDIS_HOST:10.0.230.41}
     port: ${SPRING_REDIS_PORT:6379}
-    username: ${SPRING_REDIS_USERNAME:shm_digital}
-    password: ${SPRING_REDIS_PASSWORD:Apec*@2024}
+    username: ${SPRING_REDIS_USERNAME:}
+    password: ${SPRING_REDIS_PASSWORD:}
 
   jpa:
     hibernate:
@@ -54,9 +54,9 @@ spring:
     client:
       config:
         cash-client:
-          url: ${CASH_CLIENT_URL:http://10.0.0.80:8090/v2/api/apec-finance/cash}
+          url: ${CASH_CLIENT_URL:http://10.0.0.80:8092/v2/api/apec-finance/cash}
         app-client:
-          url: ${APP_CLIENT_URL:https://d111-113-22-85-28.ngrok-free.app}
+          url: ${APP_CLIENT_URL:https://api-gateway-test.apecgroup.net/apf-v2/app}
 
 server:
   port: 8082

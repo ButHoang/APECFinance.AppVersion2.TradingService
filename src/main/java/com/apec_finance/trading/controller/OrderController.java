@@ -1,9 +1,11 @@
 package com.apec_finance.trading.controller;
 
 import com.apec_finance.trading.comon.ResponseBuilder;
+import com.apec_finance.trading.model.order.ExpectedInterest;
 import com.apec_finance.trading.model.order.OrderDepositRQ;
 import com.apec_finance.trading.model.Issuer;
 import com.apec_finance.trading.model.order.Order;
+import com.apec_finance.trading.model.order.OrderWithdrawRQ;
 import com.apec_finance.trading.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,9 +31,21 @@ public class OrderController {
         return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
     }
 
-    @PostMapping("/accumulate")
+    @PostMapping("/deposit")
     public ResponseBuilder<Order> accumulate(@RequestBody OrderDepositRQ rq) {
-        Order rs = orderService.createDeposite(rq);
+        Order rs = orderService.createDeposit(rq);
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+
+    @PostMapping("/withdraw")
+    public ResponseBuilder<Order> createWithdraw(@RequestBody OrderWithdrawRQ rq) {
+        Order rs = orderService.createWithDraw(rq.getAssetNo(), rq.getAmount());
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+
+    @GetMapping("/expected-interest")
+    public ResponseBuilder<ExpectedInterest> getExpectedInterest(@RequestParam String assetNo, @RequestParam BigDecimal amount) {
+        var rs = orderService.getExpectInterest(assetNo, amount);
         return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
     }
 }

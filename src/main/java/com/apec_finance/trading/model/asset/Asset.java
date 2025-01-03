@@ -16,4 +16,5 @@ public class Asset {
     private Integer productId;
     private String productCode;
     private Float value = 0f;
+    private String assetNo;
 }

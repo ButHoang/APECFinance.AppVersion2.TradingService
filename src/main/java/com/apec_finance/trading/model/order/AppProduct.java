@@ -1,21 +1,21 @@
 package com.apec_finance.trading.model.order;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 @Data
 public class AppProduct {
-
-    private Long id;
+    @JsonProperty("id")
+    private Integer id;
 
     @JsonProperty("status")
     private String status;
 
-    private Integer sort;
+    @JsonProperty("sort")
+    private String sort;
 
     @JsonProperty("user_created")
     private String userCreated;
@@ -29,18 +29,14 @@ public class AppProduct {
     @JsonProperty("date_updated")
     private OffsetDateTime dateUpdated;
 
+    @JsonProperty("code")
     private String code;
 
+    @JsonProperty("name")
     private String name;
 
-    @JsonProperty("stocks_type")
-    private Integer stocksType;
-
-    @JsonProperty("par_value")
-    private Long parValue;
-
-    @JsonProperty("total_qtty")
-    private Long totalQtty;
+    @JsonProperty("product_type")
+    private String productType;
 
     @JsonProperty("issue_date")
     private LocalDate issueDate;
@@ -48,14 +44,14 @@ public class AppProduct {
     @JsonProperty("due_date")
     private LocalDate dueDate;
 
-    @JsonProperty("stock_status")
-    private String stockStatus;
+    @JsonProperty("product_status")
+    private String productStatus;
 
-    @JsonProperty("bond_period")
-    private Integer bondPeriod;
+    @JsonProperty("period")
+    private Integer period;
 
-    @JsonProperty("bond_period_unit")
-    private Integer bondPeriodUnit;
+    @JsonProperty("period_unit")
+    private Integer periodUnit;
 
     @JsonProperty("interest_period")
     private Integer interestPeriod;
@@ -64,21 +60,19 @@ public class AppProduct {
     private Float interestRate;
 
     @JsonProperty("interest_period_unit")
-    private String interestPeriodUnit;
+    private Integer interestPeriodUnit;
 
     @JsonProperty("interest_type")
-    private String interestType;
+    private Integer interestType;
 
     @JsonProperty("interest_rate_type")
-    private String interestRateType;
+    private Integer interestRateType;
 
     @JsonProperty("interest_payment_type")
     private String interestPaymentType;
 
+    @JsonProperty("description")
     private String description;
-
-    @JsonProperty("base_int_days")
-    private Integer baseIntDays;
 
     @JsonProperty("order_pending_day")
     private Integer orderPendingDay;
@@ -92,29 +86,62 @@ public class AppProduct {
     @JsonProperty("info_url")
     private String infoUrl;
 
-    @JsonProperty("allow_online_trading")
-    private Boolean allowOnlineTrading;
-
     @JsonProperty("has_product")
-    private Boolean hasProduct;
+    private String hasProduct;
 
     @JsonProperty("bank_acc_id")
-    private Long bankAccId;
+    private Integer bankAccId;
 
+    @JsonProperty("category")
     private String category;
 
     @JsonProperty("auto_maturity")
-    private Boolean autoMaturity;
+    private String autoMaturity;
 
     @JsonProperty("mobilizing")
-    private Boolean mobilizing;
+    private String mobilizing;
 
-    @JsonProperty("issuer_id")
-    private Long issuerId;
-
+    @JsonProperty("type")
     private Integer type;
 
-    @JsonProperty("stock_product_detail")
-    private AppStockProductDetail stockProductDetail;
+    @JsonProperty("online_sell_type")
+    private String onlineSellType;
+
+    @JsonProperty("int_received_type")
+    private String intReceivedType;
+
+    @JsonProperty("ext_period")
+    private Integer extPeriod;
+
+    @JsonProperty("ext_period_unit")
+    private Integer extPeriodUnit;
+
+    @JsonProperty("ext_date")
+    private LocalDate extDate;
+
+    @JsonProperty("set_limit_date")
+    private LocalDate setLimitDate;
+
+    @JsonProperty("is_show_on_app")
+    private String isShowOnApp;
+
+    @JsonProperty("par_value")
+    private Integer parValue;
+
+    @JsonProperty("base_int_days")
+    private Integer baseIntDays;
+
+    @JsonProperty("total_qtty")
+    private Integer totalQtty;
+
+    @JsonProperty("limit_value")
+    private Integer limitValue;
+
+    @JsonProperty("product_int_detail")
+    private List<AppStockProductDetail> productIntDetail;
+
+    @JsonProperty("issuer_id")
+    private AppIssuer issuerId;
 }
+
 
