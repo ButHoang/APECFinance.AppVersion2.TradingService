@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/order")
@@ -46,6 +48,23 @@ public class OrderController {
     @GetMapping("/expected-interest")
     public ResponseBuilder<ExpectedInterest> getExpectedInterest(@RequestParam String assetNo, @RequestParam BigDecimal amount) {
         var rs = orderService.getExpectInterest(assetNo, amount);
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+
+    @PostMapping("/deposit/verify")
+    public ResponseBuilder<Boolean> verifyDepositOrder(@RequestBody Long orderId) {
+        var rs = orderService.verifyDepositOrder(orderId);
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+
+    @GetMapping("/otp")
+    public ResponseBuilder<Boolean> checkOTP(@RequestParam String otp) {
+        var rs = orderService.checkOTP(otp);
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+    @GetMapping("/product-id")
+    public ResponseBuilder<Map<Long, Integer>> getListProductId(@RequestParam Set<Long> orderIds) {
+        var rs = orderService.getListProductIdByOrderIds(orderIds);
         return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Set;
 
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     @Query("SELECT o.productId AS productId, " +
@@ -29,4 +30,17 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
     @Query("SELECT COUNT(o) FROM OrderEntity o WHERE o.orderNo LIKE :orderNoPrefix%")
     long countOrdersByPrefix(@Param("orderNoPrefix") String orderNoPrefix);
+
+    List<OrderEntity> findByAssetNoInAndOrderSideAndOrderTypeInAndOrderStatus(
+            List<String> assetNos,
+            String orderSide,
+            List<Integer> orderTypes,
+            Integer orderStatus
+    );
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.id IN :orderIds")
+    List<OrderEntity> findOrderEntitiesByOrderIds(@Param("orderIds") Set<Long> orderIds);
+
+
+
 }

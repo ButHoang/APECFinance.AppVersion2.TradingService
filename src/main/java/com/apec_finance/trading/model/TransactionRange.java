@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 public class TransactionRange {
@@ -17,5 +18,5 @@ public class TransactionRange {
 
     @JsonProperty("varvalue")
     @JsonFormat(pattern = "HH:mm:ss")
-    private LocalDateTime varValue;
+    private LocalTime varValue;
 }

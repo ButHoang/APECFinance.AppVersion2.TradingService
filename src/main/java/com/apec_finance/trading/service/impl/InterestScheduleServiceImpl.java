@@ -8,16 +8,17 @@ import com.apec_finance.trading.model.interest_schedule.InterestScheduleRQ;
 import com.apec_finance.trading.model.interest_schedule.InterestScheduleRS;
 import com.apec_finance.trading.repository.AssetInterestScheduleRepository;
 import com.apec_finance.trading.service.InterestScheduleService;
-import lombok.Data;
+import com.nimbusds.jose.util.Pair;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.Tuple;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -32,7 +33,7 @@ public class InterestScheduleServiceImpl implements InterestScheduleService {
         LocalDate currentDate = LocalDate.now();
 
         Pageable pageable = (rq.getSize() > 0)
-                ? PageRequest.of(rq.getPage(), rq.getSize())
+                ? PageRequest.of(rq.getPage(), rq.getSize(), Sort.by(Sort.Order.asc("interestDate")))
                 : Pageable.unpaged();
 
         Boolean isScrollUp = rq.getIsScrollUp();
@@ -49,19 +50,22 @@ public class InterestScheduleServiceImpl implements InterestScheduleService {
 
         InterestScheduleRS interestScheduleRS = new InterestScheduleRS();
 
-        Float totalInterestNotReceivedFloat = assetInterestScheduleRepository.findSumByAssetNoAndStatus(rq.getAssetNo(), 0);
-        Float totalInterestReceivedFloat = assetInterestScheduleRepository.findSumByAssetNoAndStatus(rq.getAssetNo(), 1);
+        Tuple totalInterestNotReceivedTuple = assetInterestScheduleRepository.findSumAndCountByAssetNoAndStatus(rq.getAssetNo(), 0);
+        Tuple totalInterestReceivedTuple = assetInterestScheduleRepository.findSumAndCountByAssetNoAndStatus(rq.getAssetNo(), 1);
 
-        BigDecimal totalInterestNotReceived = (totalInterestNotReceivedFloat != null)
-                ? BigDecimal.valueOf(totalInterestNotReceivedFloat)
-                : BigDecimal.ZERO;
+        double totalInterestNotReceivedDouble = (totalInterestNotReceivedTuple != null) ? (Double) totalInterestNotReceivedTuple.get("totalInterest") : 0d;
+        Integer totalInterestNotReceivedCount = (totalInterestNotReceivedTuple != null) ? ((Long) totalInterestNotReceivedTuple.get("totalCount")).intValue() : 0;
 
-        BigDecimal totalInterestReceived = (totalInterestReceivedFloat != null)
-                ? BigDecimal.valueOf(totalInterestReceivedFloat)
-                : BigDecimal.ZERO;
+        double totalInterestReceivedDouble = (totalInterestReceivedTuple != null) ? (Double) totalInterestReceivedTuple.get("totalInterest") : 0d;
+        Integer totalInterestReceivedCount = (totalInterestReceivedTuple != null) ? ((Long) totalInterestReceivedTuple.get("totalCount")).intValue() : 0;
+
+        BigDecimal totalInterestNotReceived = BigDecimal.valueOf(totalInterestNotReceivedDouble);
+        BigDecimal totalInterestReceived = BigDecimal.valueOf(totalInterestReceivedDouble);
 
         interestScheduleRS.setTotalInterestReceived(totalInterestReceived);
         interestScheduleRS.setTotalInterestNotReceived(totalInterestNotReceived);
+        interestScheduleRS.setNumOfInterestNotReceived(totalInterestNotReceivedCount);
+        interestScheduleRS.setNumOfInterestReceived(totalInterestReceivedCount);
 
         PaginationRS<InterestScheduleDetail> paginationRS = new PaginationRS<>();
         paginationRS.setContent(interestScheduleDetails);
@@ -72,9 +76,11 @@ public class InterestScheduleServiceImpl implements InterestScheduleService {
 
         interestScheduleRS.setInterestScheduleDetails(paginationRS);
 
-
         return interestScheduleRS;
     }
+
+
+
 }
 
 

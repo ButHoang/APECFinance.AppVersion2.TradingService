@@ -4,8 +4,8 @@ import com.apec_finance.trading.comon.ResponseBuilder;
 import com.apec_finance.trading.config.FormFeignEncoderConfig;
 import com.apec_finance.trading.model.CreateCashTransaction;
 import com.apec_finance.trading.model.InvestorCashBalance;
-import com.apec_finance.trading.model.TransactionRange;
 import com.apec_finance.trading.model.UpdateCashBalance;
+import com.apec_finance.trading.model.order.VerifyCashTransaction;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,4 +23,7 @@ public interface CashClient {
 
     @PostMapping("/investor-cash-transaction/create")
     ResponseBuilder<Void> createCashTransaction(@RequestHeader("Authorization") String token, @RequestBody CreateCashTransaction createCashTransaction);
+
+    @PostMapping("/investor-cash-transaction/verify")
+    ResponseBuilder<Void> verifyCashTransaction(@RequestHeader("Authorization") String token, @RequestBody VerifyCashTransaction verifyCashTransaction);
 }

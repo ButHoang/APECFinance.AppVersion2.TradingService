@@ -11,5 +11,6 @@ public class InterestScheduleDetail {
     @JsonFormat(pattern = "dd-MM-yyyy")
     private LocalDate interestDate;
     private BigDecimal interestRate;
+    private BigDecimal interestValue;
     private Integer status;
 }

@@ -10,5 +10,7 @@ import java.util.List;
 public class InterestScheduleRS {
     private BigDecimal totalInterestNotReceived;
     private BigDecimal totalInterestReceived;
+    private Integer numOfInterestNotReceived;
+    private Integer numOfInterestReceived;
     private PaginationRS<InterestScheduleDetail> interestScheduleDetails;
 }
