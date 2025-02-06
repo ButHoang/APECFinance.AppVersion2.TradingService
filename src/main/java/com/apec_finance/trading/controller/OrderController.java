@@ -7,11 +7,15 @@ import com.apec_finance.trading.model.Issuer;
 import com.apec_finance.trading.model.order.Order;
 import com.apec_finance.trading.model.order.OrderWithdrawRQ;
 import com.apec_finance.trading.service.OrderService;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,8 +32,8 @@ public class OrderController {
     }
 
     @GetMapping("/available-limits/by-investor")
-    public ResponseBuilder<BigDecimal> getAvailableLimitByInvestor(@RequestParam Integer productId) {
-        BigDecimal rs = orderService.getAvailableLimitByInvestor(productId);
+    public ResponseBuilder<BigDecimal> getAvailableLimitByInvestor(@RequestParam Integer productId, @RequestParam @DateTimeFormat(pattern = "dd-MM-yyyy") LocalDate date) {
+        BigDecimal rs = orderService.getAvailableLimitByInvestor(productId, date);
         return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
     }
 
@@ -54,6 +58,11 @@ public class OrderController {
     @PostMapping("/deposit/verify")
     public ResponseBuilder<Boolean> verifyDepositOrder(@RequestBody Long orderId) {
         var rs = orderService.verifyDepositOrder(orderId);
+        return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
+    }
+    @PostMapping("/withdraw/verify")
+    public ResponseBuilder<Boolean> verifyWithdrawOrder(@RequestBody Long orderId) {
+        var rs = orderService.verifyWithdrawOrder(orderId);
         return new ResponseBuilder<>(HttpStatus.OK.value(), "Success", rs);
     }
 

@@ -21,11 +21,17 @@ public interface AssetInterestScheduleRepository extends JpaRepository<AssetInte
             "AND c.status = :status " +
             "AND c.deleted = 0 " +
             "AND c.interest_date >= CURRENT_DATE " +
-            "ORDER BY c.interest_date ASC " +
-            "LIMIT 1", nativeQuery = true)
-    AssetInterestScheduleEntity findFirstByInvestorIdAndStatusWithEarliestInterestDate(
+            "AND c.interest_date = (SELECT MIN(c2.interest_date) " +
+            "FROM td_asset_int_schedule c2 " +
+            "WHERE c2.investor_id = :investorId " +
+            "AND c2.status = :status " +
+            "AND c2.deleted = 0 " +
+            "AND c2.interest_date >= CURRENT_DATE) " +
+            "ORDER BY c.interest_date ASC", nativeQuery = true)
+    List<AssetInterestScheduleEntity> findByInvestorIdAndStatusWithEarliestInterestDateAfterNow(
             @Param("investorId") Long investorId,
             @Param("status") Integer status);
+
 
 
     List<AssetInterestScheduleEntity> findByAssetNoAndStatusAndDeleted(String assetNo, Integer status, Integer deleted);
@@ -35,8 +41,7 @@ public interface AssetInterestScheduleRepository extends JpaRepository<AssetInte
             "AND (:status IS NULL OR a.status = :status) " +
             "AND (((:isScrollUp IS NULL OR :isScrollUp = false) AND a.interestDate <= :currentDate) " +
             "or (:isScrollUp = true AND a.interestDate > :currentDate)) " +
-            "AND a.deleted = 0 " +
-            "ORDER BY a.interestDate DESC")
+            "AND a.deleted = 0 ")
     Page<AssetInterestScheduleEntity> findByConditions(
             @Param("assetNo") String assetNo,
             @Param("status") Integer status,
@@ -50,6 +55,15 @@ public interface AssetInterestScheduleRepository extends JpaRepository<AssetInte
             "AND c.status = :status " +
             "AND c.deleted = 0")
     Tuple findSumAndCountByAssetNoAndStatus(@Param("assetNo") String assetNo, @Param("status") Integer status);
+
+    @Query("SELECT a.interestDate FROM AssetInterestScheduleEntity a " +
+            "WHERE a.assetNo = :assetNo " +
+            "AND a.deleted = 0 " +
+            "AND a.status = 0 " +
+            "AND a.interestDate = (SELECT MAX(b.interestDate) FROM AssetInterestScheduleEntity b " +
+            "WHERE b.assetNo = :assetNo AND b.deleted = 0 AND b.status = 0)")
+    LocalDate findLatestInterestDateByAssetNo(@Param("assetNo") String assetNo);
+
 
 }
 

@@ -24,23 +24,38 @@ public class InterestServiceImpl implements InterestService {
 
     @Override
     public Interest getInterestInfo(Long investorId) {
-        var interestSchedule = assetInterestScheduleRepository.findFirstByInvestorIdAndStatusWithEarliestInterestDate(investorId, 0);
-        if (interestSchedule == null) throw new ValidationException("User Id not found");
-        List<InvestorAssetEntity> investorAssetEntities = investorAssetRepository.findByInvestorIdAndProductIds(investorId, null, Pageable.unpaged()).getContent();
+        var interestSchedules = assetInterestScheduleRepository.findByInvestorIdAndStatusWithEarliestInterestDateAfterNow(investorId, 0);
+        if (interestSchedules.isEmpty()) throw new ValidationException("There is no interest schedule by investorId:" + investorId);
+        List<InvestorAssetEntity> investorAssetEntities = investorAssetRepository.findByInvestorIdAndStatusAndProductIds(investorId, 1,null, Pageable.unpaged()).getContent();
 
         float value = investorAssetEntities.stream()
                 .map(InvestorAssetEntity::getValue)
                 .reduce(0f, Float::sum);
 
-        Float interestRate = interestSchedule.getInterestRate();
-        Float feeAmount = interestSchedule.getFeeAmount();
 
         Interest rs = new Interest();
-        BigDecimal assetFormat = BigDecimal.valueOf(value*interestRate - feeAmount);
-        rs.setAsset(setAsset(assetFormat));
-        rs.setDate(interestSchedule.getInterestDate());
+        rs.setTotalAssetValue(formatNumber(BigDecimal.valueOf(value)));
+        rs.setValue(calculateTotalValue(interestSchedules));
+        rs.setDate(interestSchedules.get(0).getInterestDate());
+
         return rs;
     }
+
+    public BigDecimal calculateTotalValue(List<AssetInterestScheduleEntity> schedules) {
+        BigDecimal totalInterestValue = schedules.stream()
+                .map(AssetInterestScheduleEntity::getInterestValue)
+                .map(BigDecimal::valueOf)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalFeeAmount = schedules.stream()
+                .map(AssetInterestScheduleEntity::getFeeAmount)
+                .map(BigDecimal::valueOf)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal result = totalInterestValue.subtract(totalFeeAmount);
+        return formatNumber(result);
+    }
+
 
     @Override
     public InterestSummary getInterestSummary(List<Integer> productIds) {
@@ -75,9 +90,8 @@ public class InterestServiceImpl implements InterestService {
     }
 
 
-
-    public BigDecimal setAsset(BigDecimal totalBalance) {
-        return totalBalance.setScale(2, RoundingMode.HALF_UP);
+    public BigDecimal formatNumber(BigDecimal number) {
+        return number.setScale(1, RoundingMode.HALF_UP);
     }
 }
 

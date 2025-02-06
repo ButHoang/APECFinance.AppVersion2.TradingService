@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import javax.persistence.Tuple;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -53,14 +54,17 @@ public class InterestScheduleServiceImpl implements InterestScheduleService {
         Tuple totalInterestNotReceivedTuple = assetInterestScheduleRepository.findSumAndCountByAssetNoAndStatus(rq.getAssetNo(), 0);
         Tuple totalInterestReceivedTuple = assetInterestScheduleRepository.findSumAndCountByAssetNoAndStatus(rq.getAssetNo(), 1);
 
-        double totalInterestNotReceivedDouble = (totalInterestNotReceivedTuple != null) ? (Double) totalInterestNotReceivedTuple.get("totalInterest") : 0d;
-        Integer totalInterestNotReceivedCount = (totalInterestNotReceivedTuple != null) ? ((Long) totalInterestNotReceivedTuple.get("totalCount")).intValue() : 0;
+        double totalInterestNotReceivedDouble = (totalInterestNotReceivedTuple.get("totalInterest") != null) ? (Double) totalInterestNotReceivedTuple.get("totalInterest") : 0d;
+        Integer totalInterestNotReceivedCount = (totalInterestNotReceivedTuple.get("totalCount") != null) ? ((Long) totalInterestNotReceivedTuple.get("totalCount")).intValue() : 0;
 
-        double totalInterestReceivedDouble = (totalInterestReceivedTuple != null) ? (Double) totalInterestReceivedTuple.get("totalInterest") : 0d;
-        Integer totalInterestReceivedCount = (totalInterestReceivedTuple != null) ? ((Long) totalInterestReceivedTuple.get("totalCount")).intValue() : 0;
+        double totalInterestReceivedDouble = (totalInterestReceivedTuple.get("totalInterest") != null) ? (Double) totalInterestReceivedTuple.get("totalInterest") : 0d;
+        Integer totalInterestReceivedCount = (totalInterestReceivedTuple.get("totalCount") != null) ? ((Long) totalInterestReceivedTuple.get("totalCount")).intValue() : 0;
 
-        BigDecimal totalInterestNotReceived = BigDecimal.valueOf(totalInterestNotReceivedDouble);
-        BigDecimal totalInterestReceived = BigDecimal.valueOf(totalInterestReceivedDouble);
+        BigDecimal totalInterestNotReceived = BigDecimal.valueOf(totalInterestNotReceivedDouble)
+                .setScale(1, RoundingMode.HALF_UP);
+
+        BigDecimal totalInterestReceived = BigDecimal.valueOf(totalInterestReceivedDouble)
+                .setScale(1, RoundingMode.HALF_UP);
 
         interestScheduleRS.setTotalInterestReceived(totalInterestReceived);
         interestScheduleRS.setTotalInterestNotReceived(totalInterestNotReceived);

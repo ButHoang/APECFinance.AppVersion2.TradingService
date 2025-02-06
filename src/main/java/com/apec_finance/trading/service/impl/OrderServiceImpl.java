@@ -3,14 +3,20 @@ package com.apec_finance.trading.service.impl;
 import com.apec_finance.trading.comon.ResponseBuilder;
 import com.apec_finance.trading.entity.AssetInterestScheduleEntity;
 import com.apec_finance.trading.entity.InvestorAssetEntity;
+import com.apec_finance.trading.entity.InvestorAssetTransactionEntity;
 import com.apec_finance.trading.entity.OrderEntity;
+import com.apec_finance.trading.exception.validate.ValidationException;
 import com.apec_finance.trading.mapper.OrderMapper;
 import com.apec_finance.trading.model.*;
 import com.apec_finance.trading.model.order.*;
 import com.apec_finance.trading.repository.AssetInterestScheduleRepository;
 import com.apec_finance.trading.repository.InvestorAssetRepository;
+import com.apec_finance.trading.repository.InvestorAssetTransactionRepository;
 import com.apec_finance.trading.repository.OrderRepository;
 import com.apec_finance.trading.service.*;
+import com.apec_finance.trading.service.cache.AssetNoCacheService;
+import com.apec_finance.trading.service.cache.OrderNoCacheService;
+import com.apec_finance.trading.service.cache.TransactionNoCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +24,7 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Time;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -38,6 +45,8 @@ public class OrderServiceImpl implements OrderService {
     private final OrderNoCacheService orderNoCacheService;
     private final OrderMapper orderMapper;
     private final AssetNoCacheService assetNoCacheService;
+    private final InvestorAssetTransactionRepository investorAssetTransactionRepository;
+    private final TransactionNoCacheService transactionNoCacheService;
 
 
     public List<Issuer> getIssuerAvailableLimits(List<Integer> productIds) {
@@ -63,14 +72,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public BigDecimal getAvailableLimitByInvestor(Integer productId) {
-        Float orderValue = orderRepository.getOrderValueByInvestor(productId, keycloakService.getInvestorIdFromToken());
+    public BigDecimal getAvailableLimitByInvestor(Integer productId, LocalDate date) {
+        Float orderValue = orderRepository.getOrderValueByInvestor(productId, keycloakService.getInvestorIdFromToken(), date);
 
         if (orderValue == null) {
             return BigDecimal.ZERO;
         }
 
-        return BigDecimal.valueOf(orderValue);
+        return BigDecimal.valueOf(orderValue).setScale(1,RoundingMode.HALF_UP);
     }
 
 
@@ -108,6 +117,22 @@ public class OrderServiceImpl implements OrderService {
                 .setCreatedBy(keycloakService.getNameFromToken());
 
         orderRepository.save(orderEntity);
+
+        InvestorAssetTransactionEntity investorAssetTransactionEntity = new InvestorAssetTransactionEntity();
+        investorAssetTransactionEntity.setTranNo(transactionNoCacheService.generateTransactionNoForOrder())
+                .setOpr("+")
+                .setTranDate(LocalDate.now())
+                .setTranTime(Time.valueOf(LocalTime.now()))
+                .setTranType("BUY")
+                .setInvestorId(orderEntity.getInvestorId())
+                .setInvestorAccountNo(orderEntity.getInvestorAccountNo())
+                .setQuantity(orderEntity.getOrderQuantity())
+                .setValue(orderEntity.getOrderValue())
+                .setStatus("P")
+                .setRefId(orderEntity.getId())
+                .setRefNo(orderEntity.getOrderNo())
+                .setCreatedBy(keycloakService.getNameFromToken());
+        investorAssetTransactionRepository.save(investorAssetTransactionEntity);
 
         UpdateCashBalance updateCashBalance = new UpdateCashBalance();
         updateCashBalance.setInvestorId(keycloakService.getInvestorIdFromToken());
@@ -149,11 +174,9 @@ public class OrderServiceImpl implements OrderService {
                     .setVerifiedDate(OffsetDateTime.now())
                     .setVerifiedBy(keycloakService.getNameFromToken());
 
-            orderRepository.save(orderEntity);
-
             VerifyCashTransaction verifyCashTransaction = new VerifyCashTransaction();
             verifyCashTransaction.setRefId(orderId);
-            cashClient.verifyCashTransaction("Bearer " + keycloakService.getToken(), verifyCashTransaction);
+            cashClient.verifyDepositStockCashTransaction("Bearer " + keycloakService.getToken(), verifyCashTransaction);
 
             InvestorRS investorRS = appClient.getInvestorRs(keycloakService.getInvestorIdFromToken(), "*");
             InvestorInfo investorInfo = investorRS.getData().get(0);
@@ -170,6 +193,18 @@ public class OrderServiceImpl implements OrderService {
             assetEntity.setCreatedBy(keycloakService.getNameFromToken());
             investorAssetRepository.save(assetEntity);
 
+            InvestorAssetTransactionEntity investorAssetTransactionEntity = investorAssetTransactionRepository.findByRefId(orderId);
+            investorAssetTransactionEntity.setAssetId(assetEntity.getId())
+                    .setAssetNo(assetEntity.getAssetNo())
+                    .setAfQuantity(Float.valueOf(assetEntity.getQuantity()))
+                    .setAfValue(assetEntity.getValue())
+                    .setStatus("A");
+            investorAssetTransactionRepository.save(investorAssetTransactionEntity);
+
+            orderEntity.setAssetNo(assetEntity.getAssetNo());
+            orderRepository.save(orderEntity);
+
+
             AppStockRS stockRS = appClient.getStockRs(assetEntity.getProductId(), "*,product_int_detail.*,issuer_id.*");
             AppProduct appProduct = stockRS.getData().get(0);
 
@@ -183,6 +218,7 @@ public class OrderServiceImpl implements OrderService {
             return false;
         }
     }
+
     public Boolean checkVerifyTime() {
         List<TransactionRange> transactionRanges = appClient.getTransactionRange().getResult();
 
@@ -313,9 +349,7 @@ public class OrderServiceImpl implements OrderService {
 
             // Thêm bản ghi vào danh sách
             schedules.add(schedule);
-
-            // Cập nhật createdDate cho lần lãi tiếp theo
-            createdDate = interestDate;  // Cập nhật createdDate cho bản ghi sau
+            createdDate = interestDate;
         }
 
         return schedules;
@@ -323,8 +357,9 @@ public class OrderServiceImpl implements OrderService {
 
     public void calculateInterestAndFee(AppProduct appProduct, AssetInterestScheduleEntity schedule, LocalDate createdDate, LocalDate interestDate) {
         long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(createdDate, interestDate);
+//        log.info("created date: {}, day: {}", createdDate, daysBetween);
 
-        float interestValue = (daysBetween * appProduct.getInterestRate()) / appProduct.getBaseIntDays();
+        float interestValue = (daysBetween * appProduct.getInterestRate() * schedule.getValue()) / (appProduct.getBaseIntDays() * 100);
         schedule.setInterestValue(interestValue);
 
         float feeAmount = interestValue * schedule.getFeeRate();
@@ -352,7 +387,6 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
-
     @Override
     @Transactional
     public Order createWithDraw(String assetNo, BigDecimal amount) {
@@ -364,14 +398,16 @@ public class OrderServiceImpl implements OrderService {
         AppProduct appProduct = stockRS.getData().get(0);
 
         Integer quantity = amount.divide(BigDecimal.valueOf(appProduct.getParValue()), RoundingMode.HALF_UP).intValue();
+        int orderType = getOrderType(amount, BigDecimal.valueOf(assetEntity.getValue()));
 
         orderEntity.setInvestorId(keycloakService.getInvestorIdFromToken())
                 .setOrderNo(generateOrderNo())
+                .setAssetNo(assetNo)
                 .setInvestorAccountNo(accountNo)
                 .setOrderDate(LocalDate.now())
                 .setOrderTime(LocalDateTime.now())
                 .setOrderSide("S")
-                .setOrderType(1)
+                .setOrderType(orderType)
                 .setOrderStatus(getWithDrawStatus(amount, assetEntity.getValue()))
                 .setProductId(assetEntity.getProductId())
                 .setProductCode(assetEntity.getProductCode())
@@ -384,10 +420,23 @@ public class OrderServiceImpl implements OrderService {
                 .setCreatedBy(keycloakService.getNameFromToken());
         orderRepository.save(orderEntity);
 
-//        UpdateCashBalance updateCashBalance = new UpdateCashBalance();
-//        updateCashBalance.setInvestorId(keycloakService.getInvestorIdFromToken());
-//        updateCashBalance.setPaidAmount(amount.floatValue());
-//        updateCashBalance.setType("WITHDRAW");
+        InvestorAssetTransactionEntity investorAssetTransactionEntity = new InvestorAssetTransactionEntity();
+        investorAssetTransactionEntity.setTranNo(transactionNoCacheService.generateTransactionNoForOrder())
+                .setOpr("-")
+                .setTranDate(LocalDate.now())
+                .setTranTime(Time.valueOf(LocalTime.now()))
+                .setTranType("SELL")
+                .setInvestorId(orderEntity.getInvestorId())
+                .setInvestorAccountNo(orderEntity.getInvestorAccountNo())
+                .setQuantity(orderEntity.getOrderQuantity())
+                .setValue(orderEntity.getOrderValue())
+                .setStatus("P")
+                .setRefId(orderEntity.getId())
+                .setRefNo(orderEntity.getOrderNo())
+                .setAssetId(assetEntity.getId())
+                .setAssetNo(assetNo)
+                .setCreatedBy(keycloakService.getNameFromToken());
+        investorAssetTransactionRepository.save(investorAssetTransactionEntity);
 
         CreateCashTransaction createCashTransaction = new CreateCashTransaction();
         createCashTransaction.setOpr("+");
@@ -410,23 +459,69 @@ public class OrderServiceImpl implements OrderService {
             log.error("Failed to update cash service: " + e.getMessage());
         }
 
-        assetEntity.setQuantity(quantity);
-        assetEntity.setValue(assetEntity.getValue() - amount.floatValue());
-        investorAssetRepository.save(assetEntity);
-
-//        List<AssetInterestScheduleEntity> assetInterestScheduleEntities = assetInterestScheduleRepository.findByAssetIdAndInterestDateGreaterThan(assetEntity.getId(), LocalDate.now());
-//        assetInterestScheduleEntities.forEach(assetInterestScheduleEntity -> {
-//            assetInterestScheduleEntity.setQuantity(quantity);
-//            assetInterestScheduleEntity.setValue(assetEntity.getValue() - amount.floatValue());
-//            float interestBeforeTax = assetEntity.getValue() * assetInterestScheduleEntity.getInterestRate() / appProduct.getBaseIntDays();
-//            float feeAmount = interestBeforeTax * 5 / 100;
-//            Float interestValue = interestBeforeTax - feeAmount;
-//            assetInterestScheduleEntity.setInterestValue(interestValue);
-//            assetInterestScheduleEntity.setFeeAmount(feeAmount);
-//        });
-//        assetInterestScheduleRepository.saveAll(assetInterestScheduleEntities);
+        if (checkVerifyTime())  verifyWithdrawOrder(orderEntity.getId());
 
         return orderMapper.getDTO(orderEntity);
+    }
+
+    public int getOrderType(BigDecimal amount, BigDecimal assetValue) {
+        if (amount.compareTo(assetValue) > 0) {
+            throw new ValidationException("Amount cannot be greater than the asset value");
+        } else if (amount.compareTo(assetValue) == 0) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+
+
+    @Transactional
+    public Boolean verifyWithdrawOrder(Long orderId) {
+        try {
+            OrderEntity orderEntity = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+
+            orderEntity.setOrderStatus(2)
+                    .setVerifiedDate(OffsetDateTime.now())
+                    .setVerifiedBy(keycloakService.getNameFromToken());
+            orderRepository.save(orderEntity);
+
+            VerifyCashTransaction verifyCashTransaction = new VerifyCashTransaction();
+            verifyCashTransaction.setRefId(orderId);
+            cashClient.verifyWithdrawStockCashTransaction("Bearer " + keycloakService.getToken(), verifyCashTransaction);
+
+            InvestorAssetEntity assetEntity = investorAssetRepository.findByAssetNoAndStatusAndDeleted(orderEntity.getAssetNo(), 1, 0);
+            assetEntity.setQuantity(assetEntity.getQuantity() - orderEntity.getOrderQuantity());
+            assetEntity.setValue(assetEntity.getValue() - orderEntity.getOrderValue());
+            investorAssetRepository.save(assetEntity);
+
+            InvestorAssetTransactionEntity investorAssetTransactionEntity = investorAssetTransactionRepository.findByRefId(orderId);
+            investorAssetTransactionEntity.setAfQuantity((float) (assetEntity.getQuantity() - orderEntity.getOrderQuantity()))
+                    .setAfValue(assetEntity.getValue() - orderEntity.getOrderValue())
+                    .setStatus("A");
+            investorAssetTransactionRepository.save(investorAssetTransactionEntity);
+
+            updateInterestSchedules(assetEntity);
+
+            return true;
+
+        } catch (Exception e) {
+            log.error("Error verifying withdrawal order", e);
+            return false;
+        }
+    }
+
+    void updateInterestSchedules(InvestorAssetEntity assetEntity) {
+        var newValue = assetEntity.getValue();
+
+        List<AssetInterestScheduleEntity> assetInterestScheduleEntities = assetInterestScheduleRepository.findByAssetIdAndInterestDateGreaterThan(assetEntity.getId(), LocalDate.now());
+        assetInterestScheduleEntities.forEach(assetInterestScheduleEntity -> {
+            float newInterestValue = assetInterestScheduleEntity.getInterestValue() * newValue / assetInterestScheduleEntity.getValue();
+            assetInterestScheduleEntity.setInterestValue(newInterestValue);
+            assetInterestScheduleEntity.setFeeAmount(newInterestValue * 5 / 100);
+            assetInterestScheduleEntity.setValue(assetEntity.getValue());
+            assetInterestScheduleEntity.setQuantity(assetEntity.getQuantity());
+        });
+        assetInterestScheduleRepository.saveAll(assetInterestScheduleEntities);
     }
 
     private int getWithDrawStatus(BigDecimal amount, Float assetValue) {
@@ -588,9 +683,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        Float orderValue = orderRepository.getOrderValueByInvestor(rq.getProductId(), keycloakService.getInvestorIdFromToken());
+        Float orderValue = orderRepository.getOrderValueByInvestor(rq.getProductId(), keycloakService.getInvestorIdFromToken(), rq.getDate());
         if (orderValue == null) orderValue = 0f;
-        if ((orderValue + rq.getAmount().doubleValue()) > rq.getPersonalInvestmentLimit())
+        if (rq.getPersonalInvestmentLimit() != null && (orderValue + rq.getAmount().doubleValue()) > rq.getPersonalInvestmentLimit())
             return false;
 
         return true;

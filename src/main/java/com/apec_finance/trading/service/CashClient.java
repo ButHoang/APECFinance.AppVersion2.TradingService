@@ -24,6 +24,8 @@ public interface CashClient {
     @PostMapping("/investor-cash-transaction/create")
     ResponseBuilder<Void> createCashTransaction(@RequestHeader("Authorization") String token, @RequestBody CreateCashTransaction createCashTransaction);
 
-    @PostMapping("/investor-cash-transaction/verify")
-    ResponseBuilder<Void> verifyCashTransaction(@RequestHeader("Authorization") String token, @RequestBody VerifyCashTransaction verifyCashTransaction);
+    @PostMapping("/investor-cash-transaction/verify/deposit-stock")
+    ResponseBuilder<Void> verifyDepositStockCashTransaction(@RequestHeader("Authorization") String token, @RequestBody VerifyCashTransaction verifyCashTransaction);
+    @PostMapping("/investor-cash-transaction/verify/withdraw-stock")
+    ResponseBuilder<Void> verifyWithdrawStockCashTransaction(@RequestHeader("Authorization") String token, @RequestBody VerifyCashTransaction verifyCashTransaction);
 }

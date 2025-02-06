@@ -8,7 +8,8 @@ import java.time.LocalDate;
 
 @Data
 public class Interest {
-    BigDecimal asset;
+    private BigDecimal totalAssetValue;
+    private BigDecimal value;
     @JsonFormat(pattern = "dd-MM-yyyy")
-    LocalDate date;
+    private LocalDate date;
 }

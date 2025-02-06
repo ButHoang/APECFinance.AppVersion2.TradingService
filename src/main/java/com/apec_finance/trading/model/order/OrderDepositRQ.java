@@ -1,8 +1,10 @@
 package com.apec_finance.trading.model.order;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 public class OrderDepositRQ {
@@ -13,4 +15,6 @@ public class OrderDepositRQ {
     private Long personalInvestmentLimit;
     private String investorAccountNo;
     private Integer orderQuantity;
+    @JsonFormat(pattern = "dd-MM-yyyy")
+    private LocalDate date;
 }

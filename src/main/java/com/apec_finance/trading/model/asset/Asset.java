@@ -24,4 +24,6 @@ public class Asset {
     private BigDecimal receivedInterestValue;
     private BigDecimal unReceivedInterestValue;
     private BigDecimal expectedInterestValue;
+    @JsonFormat(pattern = "dd-MM-yyyy")
+    private LocalDate accrualWithdrawalDate;
 }
