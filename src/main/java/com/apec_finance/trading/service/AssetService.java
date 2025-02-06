@@ -1,7 +1,12 @@
 package com.apec_finance.trading.service;
 
-import com.apec_finance.trading.model.Asset;
+import com.apec_finance.trading.model.asset.*;
+
+import java.util.List;
 
 public interface AssetService {
-    Asset getTotalAsset(Long accountId);
+    AssetRS getListAsset(SearchAssetRQ searchAssetRQ, Long investorId);
+    AssetOrderInfo getAssetAndOrderInfo(String assetNo);
+    AssetProduct getAssetAndProductInfo(Long investorId, List<Integer> productIds);
+    AssetStats getAssetStats(Long investorId, Integer status);
 }

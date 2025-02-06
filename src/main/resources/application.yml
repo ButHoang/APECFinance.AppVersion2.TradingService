@@ -1,31 +1,64 @@
 spring:
   application:
-    name: APF_Trading_v2
+    name: apf_trading_v2
+
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://10.0.0.101:5432/apf_app_cms_db?currentSchema=public}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://10.0.0.101:5432/apf_app_cms_db?currentSchema=trading}
     username: ${SPRING_DATASOURCE_USERNAME:apf_app_cms_user}
     password: ${SPRING_DATASOURCE_PASSWORD:12345aA@}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
     hikari:
-      schema: ${SPRING_DATASOURCE_HIKARI_SCHEMA:public}
+      schema: ${SPRING_DATASOURCE_HIKARI_SCHEMA:trading}
+
   rabbitmq:
-    host: 10.0.0.72
-    port: 5672
-    username: abond
-    password: abond
+    host: ${SPRING_RABBITMQ_HOST:10.0.0.72}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:abond}
+    password: ${SPRING_RABBITMQ_PASSWORD:abond}
     queue:
-      name: TX_HNX_SEND_ORDER
+      name: ${SPRING_RABBITMQ_QUEUE_NAME:TX_HNX_SEND_ORDER}
     exchange:
-      order: TX_HNX_PUSH_MESSAGE
-      message: TX_HNX_SEND_MESSAGE
+      order: ${SPRING_RABBITMQ_EXCHANGE_ORDER:TX_HNX_PUSH_MESSAGE}
+      message: ${SPRING_RABBITMQ_EXCHANGE_MESSAGE:TX_HNX_SEND_MESSAGE}
+
   redis:
-    host: 10.0.0.187
-    port: 6379
-    username: shm_digital
-    password: Apec*@2024
+    host: ${SPRING_REDIS_HOST:10.0.0.187}
+    port: ${SPRING_REDIS_PORT:6379}
+    username: ${SPRING_REDIS_USERNAME:shm_digital}
+    password: ${SPRING_REDIS_PASSWORD:Apec*@2024}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:https://sso.apecgroup.net/realms/APECFinance}
+          jwk-set-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:https://sso.apecgroup.net/realms/APECFinance/protocol/openid-connect/certs}
+
+    keycloak:
+      realm: ${SPRING_SECURITY_KEYCLOAK_REALM:APECFinance}
+      auth-server-url: ${SPRING_SECURITY_KEYCLOAK_AUTH_SERVER_URL:https://sso.apecgroup.net/realms/APECFinance}
+      resource: ${SPRING_SECURITY_KEYCLOAK_RESOURCE:apec-finance-api}
+      credentials:
+        secret: ${SPRING_SECURITY_KEYCLOAK_CREDENTIALS_SECRET:UEM6v6kLpmDee1oTQgcclgsVR1jiXmdL}
+      use-resource-role-mappings: true
+
+  feign:
+    client:
+      config:
+        cash-client:
+          url: ${CASH_CLIENT_URL:http://10.0.170.132:8081/v2/api/apec-finance/cash}
+        app-client:
+          url: ${APP_CLIENT_URL:https://api-gateway-test.apecgroup.net/apf-v2/app}
+
 server:
+  port: 8082
   servlet:
     context-path: /v2/api/apec-finance/trading
-  port: 8081
-
-
