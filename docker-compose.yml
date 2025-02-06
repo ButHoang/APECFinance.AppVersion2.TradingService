@@ -1,0 +1,43 @@
+version: '3.7'
+
+services:
+  apf_trading_v2:
+    container_name: apf_trading_v2
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://10.0.0.101:5432/apf_app_cms_db?currentSchema=trading
+      - SPRING_DATASOURCE_USERNAME=apf_app_cms_user
+      - SPRING_DATASOURCE_PASSWORD=12345aA@
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
+      - SPRING_DATASOURCE_HIKARI_SCHEMA=trading
+      - SPRING_RABBITMQ_HOST=10.0.0.72
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=abond
+      - SPRING_RABBITMQ_PASSWORD=abond
+      - SPRING_RABBITMQ_QUEUE_NAME=TX_HNX_SEND_ORDER
+      - SPRING_RABBITMQ_EXCHANGE_ORDER=TX_HNX_PUSH_MESSAGE
+      - SPRING_RABBITMQ_EXCHANGE_MESSAGE=TX_HNX_SEND_MESSAGE
+      - SPRING_REDIS_HOST=10.0.0.187
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_USERNAME=shm_digital
+      - SPRING_REDIS_PASSWORD=Apec*@2024
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://sso.apecgroup.net/realms/APECFinance
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=https://sso.apecgroup.net/realms/APECFinance/protocol/openid-connect/certs
+      - SPRING_SECURITY_KEYCLOAK_REALM=APECFinance
+      - SPRING_SECURITY_KEYCLOAK_AUTH_SERVER_URL=https://sso.apecgroup.net/realms/APECFinance
+      - SPRING_SECURITY_KEYCLOAK_RESOURCE=apec-finance-api
+      - SPRING_SECURITY_KEYCLOAK_CREDENTIALS_SECRET=UEM6v6kLpmDee1oTQgcclgsVR1jiXmdL
+      - SPRING_SECURITY_KEYCLOAK_USE_RESOURCE_ROLE_MAPPINGS=true
+      - CASH_CLIENT_URL=http://10.0.0.80:8090/v2/api/apec-finance/cash
+      - APP_CLIENT_URL=https://d111-113-22-85-28.ngrok-free.app
+    ports:
+      - "8082:8082"
+    networks:
+      - apf-network
+
+networks:
+  apf-network:
+    driver: bridge
